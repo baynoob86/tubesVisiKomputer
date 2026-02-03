@@ -15,11 +15,13 @@ st.sidebar.title("⚙️ Panel Kontrol")
 st.sidebar.subheader("1. Pilih Model Deteksi")
 model_type = st.sidebar.selectbox(
     "Gunakan Model:",
-    ("YOLOv8 Nano", "YOLOv11 Nano")
+    ("YOLOv11 Nano","YOLOv8 Nano","best.pt")
 )
 
 if model_type == "YOLOv11 Nano":
     model_path = 'yolo11n.pt' 
+elif model_type == "best.pt":
+    model_path = 'best.pt'
 else:
     model_path = 'yolov8n.pt'
 
@@ -40,11 +42,14 @@ img_size = st.sidebar.number_input(
 )
 
 
+
+# ==========================================
 # MAIN PAGE
+# ==========================================
 st.title("🛵 Sistem Deteksi Okupansi Sepeda Motor")
 st.write("Silakan pilih model di sidebar kiri untuk membandingkan hasil deteksi.")
 
-# Load Model Berdasarkan Pilihan
+# --- Load Model Berdasarkan Pilihan ---
 try:
     model = YOLO(model_path)
 except Exception as e:
@@ -55,7 +60,7 @@ except Exception as e:
         st.warning(f"Sedang mendownload {model_path} otomatis... (Pastikan ada internet)")
         model = YOLO(model_path)
 
-# Fungsi Upload 
+# --- Fungsi Upload ---
 uploaded_file = st.file_uploader("Upload Gambar atau Video...", type=['jpg', 'jpeg', 'png', 'mp4'])
 
 if uploaded_file is not None:
