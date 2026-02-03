@@ -9,83 +9,79 @@ import os
 # --- Konfigurasi Halaman ---
 st.set_page_config(page_title="Deteksi Motor", page_icon="🛵")
 
-# ==========================================
-# SIDEBAR (PENGATURAN)
-# ==========================================
 st.sidebar.title("⚙️ Panel Kontrol")
 
-# 1. Pilihan Model (FITUR BARU)
+# Pilihan Model
 st.sidebar.subheader("1. Pilih Model Deteksi")
 model_type = st.sidebar.selectbox(
     "Gunakan Model:",
-    ("Model (best.pt)", "YOLOv8 Nano", "YOLOv11 Nano")
+    ("YOLOv8 Nano", "YOLOv11 Nano")
 )
 
-# Logic Mapping Nama ke File
-if model_type == "Model (best.pt)":
-    model_path = 'tunning-yolo8/best.pt'
-elif model_type == "YOLOv8 Nano":
-    model_path = 'yolov8n.pt'
-else:
+if model_type == "YOLOv11 Nano":
     model_path = 'yolo11n.pt' 
+else:
+    model_path = 'yolov8n.pt'
 
-# 2. Slider Pengaturan
+# Sensitivitas
 st.sidebar.subheader("2. Sensitivitas")
-conf_level = st.sidebar.slider("Confidence ", 0.0, 1.0, 0.5)
-iou_level = st.sidebar.slider("Overlap IoU ", 0.0, 1.0, 0.5)
+conf_level = st.sidebar.slider("Confidence ", 0.0, 1.0, 0.25) 
+iou_level = st.sidebar.slider("Overlap IoU ", 0.0, 1.0, 0.45) 
+
+# 3. Pengaturan Gambar 
+st.sidebar.subheader("3. Ukuran Gambar")
+img_size = st.sidebar.number_input(
+    "Masukkan ukuran input (piksel):", 
+    min_value=320, 
+    max_value=1280, 
+    value=640, 
+    step=32,
+    help="Standar YOLO adalah 640. Gunakan kelipatan 32."
+)
 
 
-# ==========================================
 # MAIN PAGE
-# ==========================================
 st.title("🛵 Sistem Deteksi Okupansi Sepeda Motor")
 st.write("Silakan pilih model di sidebar kiri untuk membandingkan hasil deteksi.")
 
-# --- Load Model Berdasarkan Pilihan ---
+# Load Model Berdasarkan Pilihan
 try:
     model = YOLO(model_path)
 except Exception as e:
-    # Error handling khusus kalau file best.pt belum ada
     if model_path == 'best.pt':
         st.error("⚠️ File 'best.pt' tidak ditemukan di folder ini! Pastikan kamu sudah menaruh file hasil trainingmu di sini.")
         st.stop()
     else:
-        # Kalau yolo8n/11n belum ada, dia bakal download otomatis, tapi kalau error internet:
         st.warning(f"Sedang mendownload {model_path} otomatis... (Pastikan ada internet)")
-        model = YOLO(model_path) # Coba lagi
+        model = YOLO(model_path)
 
-# --- Fungsi Upload ---
+# Fungsi Upload 
 uploaded_file = st.file_uploader("Upload Gambar atau Video...", type=['jpg', 'jpeg', 'png', 'mp4'])
 
 if uploaded_file is not None:
     file_extension = uploaded_file.name.split('.')[-1].lower()
     
-    # ==============================
-    # LOGIKA UNTUK GAMBAR
-    # ==============================
+    # Gambar
     if file_extension in ['jpg', 'jpeg', 'png']:
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Gambar Asli', use_container_width=True)
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption='Gambar Asli', width=700)
         
         if st.button('Mulai Deteksi Gambar'):
             with st.spinner(f'Memproses menggunakan {model_path}...'):
                 img_array = np.array(image)
-                
-                # PREDICT dengan parameter dari Sidebar
-                results = model.predict(img_array, conf=conf_level, iou=iou_level)
-                
+
+                results = model.predict(img_array, conf=conf_level, iou=iou_level, imgsz=img_size)
+
                 res_plotted = results[0].plot()
                 jumlah_objek = len(results[0].boxes)
                 
-                # Tampilkan Pesan Hasil
                 if jumlah_objek > 0:
                     st.success(f"Selesai! Terdeteksi **{jumlah_objek}** objek.")
                 else:
                     st.warning("Tidak ada objek yang terdeteksi. Coba turunkan 'Confidence'.")
                 
-                st.image(res_plotted, caption=f'Hasil Deteksi ({model_path})', use_container_width=True)
+                st.image(res_plotted, caption=f'Hasil Deteksi ({model_path})', width=700)
                 
-                # Download Button
                 res_image = Image.fromarray(res_plotted)
                 import io
                 buf = io.BytesIO()
@@ -97,9 +93,7 @@ if uploaded_file is not None:
                     mime="image/jpeg"
                 )
 
-    # ==============================
-    # LOGIKA UNTUK VIDEO
-    # ==============================
+    # Video
     elif file_extension == 'mp4':
         st.video(uploaded_file)
         st.write("Video berhasil diupload.")
@@ -127,9 +121,9 @@ if uploaded_file is not None:
                 ret, frame = cap.read()
                 if not ret:
                     break 
-                
-                # PREDICT dengan parameter dari Sidebar
-                results = model.predict(frame, conf=conf_level, iou=iou_level, stream=True) 
+
+                results = model.predict(frame, conf=conf_level, iou=iou_level, imgsz=img_size, stream=True) 
+
                 
                 for result in results:
                     res_plotted = result.plot()
